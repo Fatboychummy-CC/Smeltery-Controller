@@ -14,6 +14,7 @@ everything
 
 - Casting gems
 - Storing data about maximum space in the smeltery and unknown liquids.
+- Automatically moving items to an output inventory.
 
 ## Wow, how do I install this?
 

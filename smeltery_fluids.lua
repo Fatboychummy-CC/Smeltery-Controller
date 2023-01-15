@@ -12,6 +12,7 @@ local context = logging.createContext("MAIN", colors.black, colors.blue)
 logging.setLevel(1)
 if ... then
   logging.setLevel(0)
+  logging.setFile("debug.txt")
 end
 
 --[[
@@ -53,6 +54,48 @@ local FLUID_COLORS = {
   ["tconstruct:molten_nickel"] = { colors.white, colors.white },
   ["tconstruct:molten_bronze"] = { colors.brown, colors.orange },
   ["tconstruct:molten_copper"] = { colors.orange, colors.orange },
+  ["tconstruct:liquid_soul"] = { colors.brown, colors.black },
+  ["thermal:redstone"] = { colors.red, colors.black },
+  ["thermal:glowstone"] = { colors.yellow, colors.white },
+  ["thermal:ender"] = { colors.blue, colors.black },
+  ["thermal:sap"] = { colors.brown, colors.brown },
+  ["thermal:syrup"] = { colors.orange, colors.orange },
+  ["thermal:resin"] = { colors.brown, colors.white },
+  ["thermal:tree_oil"] = { colors.orange, colors.orange },
+  ["thermal:latex"] = { colors.white, colors.lightGray },
+  ["thermal:crude_oil"] = { colors.gray, colors.black },
+  ["thermal:heavy_oil"] = { colors.red, colors.red },
+  ["thermal:light_oil"] = { colors.orange, colors.lightGray },
+  ["thermal:refined_fuel"] = { colors.yellow, colors.lightGray },
+}
+
+local FLUID_LOOKUP = {
+  ["tconstruct:molten_iron"] = "Molten Iron",
+  ["tconstruct:molten_gold"] = "Molten Gold",
+  ["tconstruct:molten_tin"] = "Molten Tin",
+  ["tconstruct:molten_lead"] = "Molten Lead",
+  ["tconstruct:molten_electrum"] = "Molten Electrum",
+  ["tconstruct:molten_aluminium"] = "Molten Aluminium",
+  ["tconstruct:molten_zinc"] = "Molten Zinc",
+  ["tconstruct:molten_brass"] = "Molten Brass",
+  ["tconstruct:molten_invar"] = "Molten Invar",
+  ["tconstruct:molten_platinum"] = "Molten Platinum",
+  ["tconstruct:molten_nickel"] = "Molten Nickel",
+  ["tconstruct:molten_bronze"] = "Molten Bronze",
+  ["tconstruct:molten_copper"] = "Molten Copper",
+  ["tconstruct:liquid_soul"] = "Liquid Soul",
+  ["thermal:redstone"] = "Destabilized Redstone",
+  ["thermal:glowstone"] = "Energized Glowstone",
+  ["thermal:ender"] = "Resonant Ender",
+  ["thermal:sap"] = "Sap",
+  ["thermal:syrup"] = "Syrup",
+  ["thermal:resin"] = "Resin",
+  ["thermal:tree_oil"] = "Tree Oil",
+  ["thermal:latex"] = "Latex",
+  ["thermal:crude_oil"] = "Crude Oil",
+  ["thermal:heavy_oil"] = "Heavy Oil",
+  ["thermal:light_oil"] = "Light Oil",
+  ["thermal:refined_fuel"] = "Refined Fuel",
 }
 
 local BLIT_CONVERT = {
@@ -104,6 +147,118 @@ end
   ##############
 ]]
 
+local process_info = {
+  working = false,
+  name = "",
+  needed = { 0, 0, 0 }, ---@type table<integer, integer>
+  done = { 0, 0, 0 } ---@type table<integer, integer>
+}
+
+--- Quick Insert Table
+---@return QIT QIT The quick insert Table.
+local function QIT()
+  return {
+    Insert = function(self, v)
+      self.n = self.n + 1
+      self[self.n] = v
+    end,
+    n = 0
+  }
+end
+
+--- Check if a position is in-between another position (inclusive)
+---@param x integer Test value.
+---@param y integer Test value.
+---@param x1 integer First position.
+---@param y1 integer First position.
+---@param x2 integer Second position.
+---@param y2 integer Second position.
+---@return boolean is_between If the position is in-between the two given positions.
+local function in_between(x, y, x1, y1, x2, y2)
+  return x >= x1 and x <= x2 and y >= y1 and y <= y2
+end
+
+local buttons = QIT() ---@type QIT<button>
+
+local function check_buttons(x, y)
+  for i = 1, buttons.n do
+    local button = buttons[i]
+
+    local x_left, x_right = button.center_x - (math.floor(#button.text / 2 + 0.5)) - 1,
+        button.center_x + (math.floor(#button.text / 2 + 0.5))
+
+    if button.enabled and in_between(x, y, x_left, button.center_y - 1, x_right, button.center_y + 1) then
+      button.callback()
+    end
+  end
+end
+
+local function draw_buttons()
+  for i = 1, buttons.n do
+    local button = buttons[i]
+
+    if button.displayed then
+      local win = button.win
+
+      local x_pos = button.center_x - (math.floor(#button.text / 2 + 0.5))
+
+      for y = -1, 1 do
+        win.setCursorPos(x_pos - 1, button.center_y + y)
+        win.setBackgroundColor(button.enabled and button.bg_color_enable or button.bg_color_disable)
+        win.write((' '):rep(#button.text + 2))
+
+        if y == 0 then
+          win.setCursorPos(x_pos, button.center_y)
+          win.write(button.text)
+        end
+      end
+    end
+  end
+end
+
+--- Create a simple button.
+---@param win table The window to draw the button to.
+---@param text string The text to display.
+---@param center_x integer The center position of the button.
+---@param center_y integer The center position of the button.
+---@param txt_color colour The color of the text.
+---@param bg_color_enable colour The color of the background when enabled.
+---@param bg_color_disable colour The color of the background when disabled.
+---@param callback fun() Called when the button is pressed.
+---@return button
+local function simple_button(win, text, center_x, center_y, txt_color, bg_color_enable, bg_color_disable, callback)
+  ---@type button
+  local button = {
+    win = win,
+    text = text,
+    center_x = center_x,
+    center_y = center_y,
+    txt_color = txt_color,
+    bg_color_enable = bg_color_enable,
+    bg_color_disable = bg_color_disable,
+    callback = callback,
+    enabled = true,
+    displayed = true
+  }
+
+  buttons:Insert(button)
+
+  return button
+end
+
+--- Draw a simple progress bar to a window.
+---@param win table The window to draw to.
+---@param x integer X position of the left of the bar.
+---@param y integer Y position.
+---@param w integer The width of the bar.
+---@param percent number Percentage between 0-1.
+---@param color colour The color of the bar.
+local function progress(win, x, y, w, percent, color)
+  win.setCursorPos(x, y)
+  win.setBackgroundColor(color)
+  win.write((' '):rep(math.floor(w * percent + 0.5)))
+end
+
 --- Ensures only one modem is connected to the system.
 local function ensure_single_modem()
   local modem_found = false
@@ -117,18 +272,6 @@ local function ensure_single_modem()
       modem_found = true
     end
   end
-end
-
---- Quick Insert Table
----@return QIT QIT The quick insert Table.
-local function QIT()
-  return {
-    Insert = function(self, v)
-      self.n = self.n + 1
-      self[self.n] = v
-    end,
-    n = 0
-  }
 end
 
 --- Get the amount of blocks, ingots, and nuggets of a specific fluid exist in a specified container.
@@ -210,13 +353,15 @@ local function get_fluids(drains)
   return fluids
 end
 
+local move_context = logging.createContext("MOVE", colors.black, colors.white)
 --- Move fluids from a single drain to multiple casters.
 ---@param drain string The drain to move fluids from
 ---@param casters table The casters to move fluids to
 ---@param fluid_name string The name of the fluid to be sent to the casters
 ---@param fluid_amount integer The amount of fluid to push to each caster.
 ---@param count integer The amount of times to cast this item.
-local function wrap_move_fluid(drain, casters, fluid_name, fluid_amount, count)
+---@param cast_type string Used to count how many of each is complete.
+local function wrap_move_fluid(drain, casters, fluid_name, fluid_amount, count, cast_type)
   return function()
     local funcs = {}
 
@@ -225,11 +370,23 @@ local function wrap_move_fluid(drain, casters, fluid_name, fluid_amount, count)
         local caster = casters[i % #casters + 1]
 
         local moved = 0
+        move_context.debug("Start: %s -> %s (%d x %s)", drain, caster, fluid_amount, fluid_name)
         repeat
           local _moved = peripheral.call(drain, "pushFluid", caster, fluid_amount - moved, fluid_name)
           moved = moved + _moved
           sleep(0.25) -- 4 tries per second is honestly way more than enough.
         until moved >= fluid_amount
+        move_context.info("Moved: %s -> %s (%d x %s)", drain, caster, fluid_amount, fluid_name)
+
+        if cast_type == "block" then
+          process_info.done[1] = process_info.done[1] + 1
+        elseif cast_type == "ingot" then
+          process_info.done[2] = process_info.done[2] + 1
+        elseif cast_type == "nugget" then
+          process_info.done[3] = process_info.done[3] + 1
+        end
+
+        os.queueEvent("redraw_smeltery")
       end
     end
 
@@ -240,27 +397,36 @@ end
 --- Moves fluid from drains to casters
 ---@param drains table The list of drains attached to the network.
 ---@param casters {blocks:{}, ingots:{}, nuggets:{}} The caster types connected.
-local function move_fluid(drains, casters)
-  local total_tanks = 0
+---@param fluid_name string?
+local function move_fluid(drains, casters, fluid_name)
   local funcs = {}
+
+  local totals = { 0, 0, 0 }
 
   for _, drain in ipairs(drains) do
     local tanks = peripheral.call(drain, "tanks")
 
     for i, tank in ipairs(tanks) do
-      local blocks, ingots, nuggets = get_fluid_as_items(tank)
-      total_tanks = total_tanks + 1
+      if not fluid_name or (fluid_name and tank.name == fluid_name) then
+        local blocks, ingots, nuggets = get_fluid_as_items(tank)
+        totals[1] = totals[1] + blocks
+        totals[2] = totals[2] + ingots
+        totals[3] = totals[3] + nuggets
 
-      -- move blocks
-      funcs[#funcs + 1] = wrap_move_fluid(drain, casters.blocks, tank.name, BLOCK, blocks)
+        -- move blocks
+        funcs[#funcs + 1] = wrap_move_fluid(drain, casters.blocks, tank.name, BLOCK, blocks, "block")
 
-      -- move ingots
-      funcs[#funcs + 1] = wrap_move_fluid(drain, casters.ingots, tank.name, INGOT, ingots)
+        -- move ingots
+        funcs[#funcs + 1] = wrap_move_fluid(drain, casters.ingots, tank.name, INGOT, ingots, "ingot")
 
-      -- move nuggets
-      funcs[#funcs + 1] = wrap_move_fluid(drain, casters.nuggets, tank.name, NUGGET, nuggets)
+        -- move nuggets
+        funcs[#funcs + 1] = wrap_move_fluid(drain, casters.nuggets, tank.name, NUGGET, nuggets, "nugget")
+      end
     end
   end
+
+  process_info.needed = totals
+  process_info.done = { 0, 0, 0 }
 
   parallel.waitForAll(table.unpack(funcs))
 end
@@ -366,6 +532,9 @@ local function brick_pattern()
   end
 end
 
+local working = false
+local selected_fluid
+
 --- Main thread for displaying information and getting user input
 local function ui_thread()
   local ui_context = logging.createContext("UI", colors.black, colors.green)
@@ -373,7 +542,6 @@ local function ui_thread()
   if not mon then
     error("No monitor attached to system.", 0)
   end
-
 
   mon.setTextScale(0.5)
   local sx, sy = mon.getSize()
@@ -408,12 +576,15 @@ local function ui_thread()
   local H_CONTROLS = math.ceil(sy / 3) - 2
   local controls_win
 
+  local button_cast_all
+  local button_cast_selected
+
   local FLUID_CHAR = '\x7f'
 
   -- ui-locals
   local max_fluid = 0
   local fluid_order = {} ---@type {[integer]:string}
-  local selected_fluid
+  local fluid_heights
 
   local function redraw_bg()
     ui_context.debug("Redrawing background.")
@@ -434,6 +605,20 @@ local function ui_thread()
 
     -- controls
     controls_win = outlined_box(X_CONTROLS, Y_CONTROLS, W_CONTROLS, H_CONTROLS, "CONTROLS", '0', 'f', '7')
+
+    buttons = QIT() ---@type QIT<button>
+
+    local w = controls_win.getSize()
+
+    button_cast_all = simple_button(controls_win, "Cast all", math.ceil(w / 2), 3, colours.white, colours.green,
+      colors.lightGray, function() ui_context.debug("Press cast all") os.queueEvent("smeltery_cast", "all") end)
+
+    button_cast_selected = simple_button(controls_win, "Cast selection", math.ceil(w / 2), 7, colours.white,
+      colours.green,
+      colors.lightGray,
+      function() ui_context.debug("Press cast selected") os.queueEvent("smeltery_cast", selected_fluid) end)
+    button_cast_selected.enabled = false
+    selected_fluid = nil
 
     term.redirect(old)
   end
@@ -543,9 +728,8 @@ local function ui_thread()
   --- Get the fluid that should be at a specific height
   ---@param y integer The height to test for.
   ---@param h integer The height of the window.
-  ---@param fluid_heights table The heights of each fluid.
   ---@return string? The fluid at the specific height, or nil if out of bounds.
-  local function get_fluid_at_height(y, h, fluid_heights)
+  local function get_fluid_at_height(y, h)
     local upper_bound = 0
 
     -- for each fluid
@@ -568,10 +752,10 @@ local function ui_thread()
     ui_context.debug("Draw fluids to monitor.")
     tanks_win.clear()
     local w, h = tanks_win.getSize()
-    local fluid_heights = calculate_heights(tanks, h)
+    fluid_heights = calculate_heights(tanks, h)
     -- for each y value
     for y = h, 1, -1 do
-      local fluid = get_fluid_at_height(y, h, fluid_heights)
+      local fluid = get_fluid_at_height(y, h)
       if fluid then
         -- Generate random colors to use for this fluid if none exists.
         if not FLUID_COLORS[fluid] then
@@ -592,30 +776,205 @@ local function ui_thread()
   --- Display information about the selected fluid in info_win
   ---@param tanks table The tanks to display info for.
   local function info(tanks)
+    ui_context.debug("Drawing info about selected fluid.")
+    info_win.setBackgroundColor(colors.black)
+    info_win.clear()
 
+    if selected_fluid then
+      local selected_tank
+      for _, tank in ipairs(tanks) do
+        if tank.name == selected_fluid then
+          selected_tank = tank
+          break
+        end
+      end
+
+      local w, h = info_win.getSize()
+
+      info_win.setCursorPos(1, math.ceil(h / 2))
+      info_win.blit(('\x84'):rep(w), ('7'):rep(w), ('f'):rep(w))
+
+      local name = FLUID_LOOKUP[selected_fluid] and FLUID_LOOKUP[selected_fluid] or selected_fluid
+      info_win.setCursorPos(math.ceil(w / 2 - #name / 2), math.floor(h / 4 + 0.5))
+      info_win.write(name)
+
+      if selected_tank then
+        local blocks, ingots, nuggets = get_fluid_as_items(selected_tank)
+
+        info_win.setCursorPos(math.floor(w * 0.25 - 5 / 2 - 0.5), math.floor(h * 0.75 - 0.5))
+        info_win.write("Blocks")
+        info_win.setCursorPos(math.floor(w * 0.25 - #tostring(blocks) / 2 - 0.5), math.floor(h * 0.75 + 1.5))
+        info_win.write(blocks)
+
+        info_win.setCursorPos(math.floor(w / 2 - 5 / 2 + 0.5), math.floor(h * 0.75 - 0.5))
+        info_win.write("Ingots")
+        info_win.setCursorPos(math.floor(w / 2 - #tostring(ingots) / 2 + 0.5), math.floor(h * 0.75 + 1.5))
+        info_win.write(ingots)
+
+        info_win.setCursorPos(math.floor(w * 0.8 - 7 / 2 + 0.5), math.floor(h * 0.75 - 0.5))
+        info_win.write("Nuggets")
+        info_win.setCursorPos(math.floor(w * 0.8 - #tostring(nuggets) / 2 + 0.5), math.floor(h * 0.75 + 1.5))
+        info_win.write(nuggets)
+      else
+        local txt = "Failed to get fluid data."
+        info_win.setCursorPos(math.ceil((w / 2 - #txt / 2)), math.floor(h * 0.75 + 0.5))
+      end
+    end
+  end
+
+  local function controls()
+    ui_context.debug("Draw controls.")
+
+    controls_win.setBackgroundColor(colors.black)
+    controls_win.clear()
+
+    button_cast_all.enabled = not process_info.working
+    button_cast_selected.enabled = selected_fluid and not process_info.working
+    draw_buttons()
+  end
+
+  local function process()
+    ui_context.debug("Draw processes.")
+
+    processes_win.setBackgroundColor(colors.black)
+    processes_win.clear()
+
+    if process_info.working then
+      local w, h = processes_win.getSize()
+
+      local name = process_info.name
+      if FLUID_LOOKUP[name] then
+        name = FLUID_LOOKUP[name]
+      end
+
+      processes_win.setCursorPos(math.ceil(w / 2 - #name / 2), 2)
+      processes_win.write(name)
+
+      local blocks, ingots, nuggets = table.unpack(process_info.needed, 1, 3)
+      local blocks_done, ingots_done, nuggets_done = table.unpack(process_info.done, 1, 3)
+
+      processes_win.setCursorPos(math.floor(w * 0.25 - 5 / 2 - 0.5), math.floor(h * 0.75 - 0.5))
+      processes_win.write("Blocks")
+      processes_win.setCursorPos(math.floor(w * 0.25 - #tostring(blocks) / 2 - 0.5), math.floor(h * 0.75 + 1.5))
+      processes_win.write(blocks)
+      processes_win.setCursorPos(math.floor(w * 0.25 - #tostring(blocks) / 2 - 0.5), math.floor(h * 0.75 + 2.5))
+      if blocks == blocks_done then
+        processes_win.setTextColor(colors.green)
+      else
+        processes_win.setTextColor(colors.yellow)
+      end
+      processes_win.write(blocks_done)
+
+      processes_win.setTextColor(colors.white)
+
+      processes_win.setCursorPos(math.floor(w / 2 - 5 / 2 + 0.5), math.floor(h * 0.75 - 0.5))
+      processes_win.write("Ingots")
+      processes_win.setCursorPos(math.floor(w / 2 - #tostring(ingots) / 2 + 0.5), math.floor(h * 0.75 + 1.5))
+      processes_win.write(ingots)
+      if ingots == ingots_done then
+        processes_win.setTextColor(colors.green)
+      else
+        processes_win.setTextColor(colors.yellow)
+      end
+      processes_win.setCursorPos(math.floor(w / 2 - #tostring(ingots) / 2 + 0.5), math.floor(h * 0.75 + 2.5))
+      processes_win.write(ingots_done)
+
+      processes_win.setTextColor(colors.white)
+
+      processes_win.setCursorPos(math.floor(w * 0.8 - 7 / 2 + 0.5), math.floor(h * 0.75 - 0.5))
+      processes_win.write("Nuggets")
+      processes_win.setCursorPos(math.floor(w * 0.8 - #tostring(nuggets) / 2 + 0.5), math.floor(h * 0.75 + 1.5))
+      processes_win.write(nuggets)
+      if nuggets == nuggets_done then
+        processes_win.setTextColor(colors.green)
+      else
+        processes_win.setTextColor(colors.yellow)
+      end
+      processes_win.setCursorPos(math.floor(w * 0.8 - #tostring(nuggets) / 2 + 0.5), math.floor(h * 0.75 + 2.5))
+      processes_win.write(nuggets_done)
+
+      processes_win.setTextColor(colors.white)
+    end
+  end
+
+  local function redraw_loop()
+    local REDRAW_RATE = 1
+    local bundled_info = bundle_information()
+    local timer = os.startTimer(0.1)
+    ui_context.info("Loaded initial information.")
+
+    while true do
+      local event, tmr
+      repeat -- wait until it's time to redraw.
+        event, tmr = os.pullEvent()
+      until event == "redraw_smeltery" or (event == "timer" and tmr == timer)
+
+      if event ~= "redraw_smeltery" then
+        -- collect information
+        bundled_info = bundle_information()
+      end
+
+      -- Draw everything
+      fluids(bundled_info.inputs)
+      info(bundled_info.inputs)
+      controls()
+      process()
+
+      timer = os.startTimer(REDRAW_RATE)
+    end
+  end
+
+  local function input_loop()
+    local name = peripheral.getName(mon) ---@type string
+
+    -- window informations
+    local fluid_win_x, fluid_win_y = tanks_win.getPosition() ---@type integer, integer
+    local fluid_win_w, fluid_win_h = tanks_win.getSize() ---@type integer, integer
+    local fluid_win_x2, fluid_win_y2 = fluid_win_x + fluid_win_w - 1, fluid_win_h + fluid_win_h - 1
+
+    local control_win_x, control_win_y = controls_win.getPosition() ---@type integer, integer
+    local control_win_w, control_win_h = controls_win.getSize() ---@type integer, integer
+    local control_win_x2, control_win_y2 = control_win_x + control_win_w - 1, control_win_y + control_win_h - 1
+
+    while true do
+      ---@type string, string, integer, integer
+      local _, monitor_touched, x, y = os.pullEvent "monitor_touch"
+
+      if monitor_touched == name then
+        if in_between(x, y, fluid_win_x, fluid_win_y, fluid_win_x2, fluid_win_y2) then
+          -- touched the fluid window!
+          y = y - fluid_win_y + 1
+          selected_fluid = get_fluid_at_height(y, fluid_win_h)
+          ui_context.info("Select: %s", selected_fluid)
+
+          if selected_fluid and not process_info.working then
+            button_cast_selected.enabled = true
+          else
+            button_cast_selected.enabled = false
+          end
+          os.queueEvent "redraw_smeltery"
+        elseif in_between(x, y, control_win_x, control_win_y, control_win_x2, control_win_y2) then
+          -- Touched the control window!
+          ui_context.debug("Control click: %d %d", x - control_win_x + 1, y - control_win_y + 1)
+          check_buttons(x - control_win_x + 1, y - control_win_y + 1)
+        end
+      end
+    end
   end
 
   redraw_bg()
-  ui_context.debug("Begin main loop.")
-  while true do
-
-    local bundled_info = bundle_information()
-
-    local old = term.redirect(win)
-    fluids(bundled_info.inputs)
-    term.redirect(old)
-
-    sleep(0.25) ---@TODO Replace this with a manual sleep, and check for user input/screen resizing.
-  end
+  ui_context.debug("Begin main loops.")
+  parallel.waitForAny(redraw_loop, input_loop)
 end
 
 --- Main thread for controlling movement of fluids.
 local function run_thread()
+  local run_context = logging.createContext("RUN", colors.black, colors.orange)
   local drains = get_drains()
   if #drains > 1 then
     local old = TERM.getTextColor()
     TERM.setTextColor(colors.yellow)
-    context.warn("Multiple drains exist. Ensure only one drain per smeltery, otherwise issues will occur.")
+    context.warn("Multiple drains exist. Ensure there is only one drain connected, otherwise issues will occur.")
     TERM.setTextColor(old)
     sleep(7)
   end
@@ -623,14 +982,29 @@ local function run_thread()
   local casters = get_casters()
 
   while true do
-    context.info("Push all fluids.")
-    move_fluid(drains, casters)
-    sleep(60)
+    local _, to_cast = os.pullEvent("smeltery_cast")
+    if to_cast == "all" then
+      run_context.info("Push all fluids.")
+      process_info.working = true
+      process_info.name = "Everything"
+      move_fluid(drains, casters)
+      sleep(1)
+      process_info.working = false
+      selected_fluid = nil
+    else
+      run_context.info("Push fluid %s", to_cast)
+      process_info.working = true
+      process_info.name = to_cast
+      move_fluid(drains, casters, to_cast)
+      sleep(1)
+      process_info.working = false
+      selected_fluid = nil
+    end
   end
 end
 
 -- Main logic
-context.debug("Starting...")
+context.info("Starting...")
 ensure_single_modem()
 local ok, err = pcall(parallel.waitForAny, ui_thread, run_thread)
 if ok then

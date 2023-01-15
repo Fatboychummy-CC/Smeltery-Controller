@@ -18,7 +18,19 @@
 ---| 'e' # red
 ---| 'f' # black
 
-
----@class QIT
+---@generic T
+---@class QIT<T>: {[integer]: T}
 ---@field Insert fun(self:QIT, value:any) Insert a value into the QIT.
 ---@field n integer The size of the QIT.
+
+---@class button
+---@field win table
+---@field text string
+---@field center_x integer
+---@field center_y integer
+---@field txt_color colour
+---@field bg_color_enable colour
+---@field bg_color_disable colour
+---@field callback fun()
+---@field enabled boolean
+---@field displayed boolean

@@ -55,6 +55,9 @@ local FLUID_COLORS = {
   ["tconstruct:molten_bronze"] = { colors.brown, colors.orange },
   ["tconstruct:molten_copper"] = { colors.orange, colors.orange },
   ["tconstruct:liquid_soul"] = { colors.brown, colors.black },
+  ["tconstruct:molten_cobalt"] = { colors.blue, colors.gray },
+  ["tconstruct:molten_netherite"] = { colors.brown, colors.gray },
+  ["tconstruct:molten_manyullyn"] = { colors.purple, colors.gray },
   ["thermal:redstone"] = { colors.red, colors.black },
   ["thermal:glowstone"] = { colors.yellow, colors.white },
   ["thermal:ender"] = { colors.blue, colors.black },
@@ -84,6 +87,9 @@ local FLUID_LOOKUP = {
   ["tconstruct:molten_bronze"] = "Molten Bronze",
   ["tconstruct:molten_copper"] = "Molten Copper",
   ["tconstruct:liquid_soul"] = "Liquid Soul",
+  ["tconstruct:molten_cobalt"] = "Molten Cobalt",
+  ["tconstruct:molten_netherite"] = "Molten Netherite",
+  ["tconstruct:molten_manyullyn"] = "Molten Manyullyn",
   ["thermal:redstone"] = "Destabilized Redstone",
   ["thermal:glowstone"] = "Energized Glowstone",
   ["thermal:ender"] = "Resonant Ender",
@@ -680,6 +686,8 @@ local function ui_thread()
       fluids[tank.name] = fluids[tank.name] + tank.amount
       current_total = current_total + tank.amount
     end
+
+    ui_context.debug("Fluid: %d | %d (max | last)", max_fluid, current_total)
 
     max_fluid = math.max(max_fluid, current_total)
 
